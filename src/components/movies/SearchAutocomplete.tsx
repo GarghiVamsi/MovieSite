@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { formatTitle } from "@/lib/utils";
 
 interface Suggestion {
   id: string;
@@ -33,11 +34,16 @@ export function SearchAutocomplete({ defaultValue = "", onSearch, onSubmit }: Pr
     if (query.length < 1) { setSuggestions([]); setOpen(false); return; }
 
     debounceRef.current = setTimeout(async () => {
-      const res = await fetch(`/api/movies/suggest?q=${encodeURIComponent(query)}`);
-      const data: Suggestion[] = await res.json();
-      setSuggestions(data);
-      setOpen(data.length > 0);
-      setActiveIndex(-1);
+      try {
+        const res = await fetch(`/api/movies/suggest?q=${encodeURIComponent(query)}`);
+        if (!res.ok) return;
+        const data: Suggestion[] = await res.json();
+        setSuggestions(data);
+        setOpen(data.length > 0);
+        setActiveIndex(-1);
+      } catch {
+        // Network failure — leave suggestions as-is, don't crash
+      }
     }, 250);
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
@@ -115,7 +121,7 @@ export function SearchAutocomplete({ defaultValue = "", onSearch, onSubmit }: Pr
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-gray-100">{s.title}</p>
+                  <p className="truncate text-sm text-gray-100">{formatTitle(s.title)}</p>
                   <p className="text-xs text-gray-500">
                     {s.year ?? "—"}
                     <span className={`ml-2 rounded px-1 py-0.5 text-[10px] font-medium ${

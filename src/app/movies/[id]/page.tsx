@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -19,17 +20,9 @@ interface PageProps {
   params: { id: string };
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const movie = await prisma.movie.findUnique({ where: { id: params.id } });
-  if (!movie) return { title: "Not Found" };
-  return { title: `${formatTitle(movie.title)} (${movie.year}) — MyMoviePal` };
-}
-
-export default async function MovieDetailPage({ params }: PageProps) {
-  const session = await getServerSession(authOptions);
-
-  const movie = await prisma.movie.findUnique({
-    where: { id: params.id },
+const getMovie = cache((id: string) =>
+  prisma.movie.findUnique({
+    where: { id },
     include: {
       ratings: {
         include: { user: { select: { id: true, name: true, email: true } } },
@@ -37,7 +30,19 @@ export default async function MovieDetailPage({ params }: PageProps) {
       },
       _count: { select: { ratings: true } },
     },
-  });
+  })
+);
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const movie = await getMovie(params.id);
+  if (!movie) return { title: "Not Found" };
+  return { title: `${formatTitle(movie.title)} (${movie.year}) — MyMoviePal` };
+}
+
+export default async function MovieDetailPage({ params }: PageProps) {
+  const session = await getServerSession(authOptions);
+
+  const movie = await getMovie(params.id);
 
   if (!movie) notFound();
 
@@ -145,7 +150,7 @@ export default async function MovieDetailPage({ params }: PageProps) {
                 <div>
                   <p className="text-3xl font-bold text-blue-400">{formatScore(movie.mlAvgScore)}</p>
                   <p className="text-xs text-gray-400">
-                    {(movie as { contentType?: string }).contentType === "anime"
+                    {movie.contentType === "anime"
                       ? `AniList · ${movie.mlRatingCount?.toLocaleString()} votes`
                       : `${movie.mlRatingCount?.toLocaleString()} community ratings`}
                   </p>
