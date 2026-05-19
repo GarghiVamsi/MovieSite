@@ -34,11 +34,16 @@ export function SearchAutocomplete({ defaultValue = "", onSearch, onSubmit }: Pr
     if (query.length < 1) { setSuggestions([]); setOpen(false); return; }
 
     debounceRef.current = setTimeout(async () => {
-      const res = await fetch(`/api/movies/suggest?q=${encodeURIComponent(query)}`);
-      const data: Suggestion[] = await res.json();
-      setSuggestions(data);
-      setOpen(data.length > 0);
-      setActiveIndex(-1);
+      try {
+        const res = await fetch(`/api/movies/suggest?q=${encodeURIComponent(query)}`);
+        if (!res.ok) return;
+        const data: Suggestion[] = await res.json();
+        setSuggestions(data);
+        setOpen(data.length > 0);
+        setActiveIndex(-1);
+      } catch {
+        // Network failure — leave suggestions as-is, don't crash
+      }
     }, 250);
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };

@@ -45,7 +45,7 @@ const fetchFeatured = unstable_cache(
       prisma.rating.findMany({
         where: { review: { not: null }, score: { gte: 8 } },
         orderBy: { score: "desc" },
-        take: 20,
+        take: 50,
         select: {
           score: true,
           review: true,
@@ -54,12 +54,10 @@ const fetchFeatured = unstable_cache(
         },
       }),
     ]);
-    const topAnime = animePool.sort(() => Math.random() - 0.5).slice(0, 4);
-    const topMovies = moviePool.sort(() => Math.random() - 0.5).slice(0, 4);
-    const topReviews = reviewPool.sort(() => Math.random() - 0.5).slice(0, 4);
     // Interleave movies and anime so the rotator alternates between both
     const heroPool = heroMovies.flatMap((m, i) => (heroAnime[i] ? [m, heroAnime[i]] : [m]));
-    return { topAnime, topMovies, heroPool, topReviews };
+    // Return full pools — shuffling happens per-request in HomePage so each visitor sees a different set
+    return { animePool, moviePool, heroPool, reviewPool };
   },
   ["landing-featured"],
   { revalidate: 300 }
@@ -73,7 +71,10 @@ function fmtCount(n: number | null): string {
 }
 
 export default async function HomePage() {
-  const { topAnime, topMovies, heroPool, topReviews } = await fetchFeatured();
+  const { animePool, moviePool, heroPool, reviewPool } = await fetchFeatured();
+  const topAnime = [...animePool].sort(() => Math.random() - 0.5).slice(0, 4);
+  const topMovies = [...moviePool].sort(() => Math.random() - 0.5).slice(0, 4);
+  const topReviews = [...reviewPool].sort(() => Math.random() - 0.5).slice(0, 4);
 
   return (
     <div className="min-h-screen bg-gray-950">
