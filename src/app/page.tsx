@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { formatTitle, formatScore } from "@/lib/utils";
 import { MotionDiv } from "@/components/ui/Motion";
@@ -7,60 +8,62 @@ import { HeroRotator } from "@/components/movies/HeroRotator";
 import { ContactButton } from "@/components/ui/ContactButton";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "MyMoviePal — Discover Movies & Anime" };
 
-async function fetchFeatured() {
-  const movieSkip = Math.floor(Math.random() * 300);
-  const animeSkip = Math.floor(Math.random() * 200);
-  const currentYear = new Date().getFullYear();
-  const [animePool, moviePool, heroMovies, heroAnime, reviewPool] = await Promise.all([
-    prisma.movie.findMany({
-      where: { contentType: "anime", mlAvgScore: { not: null }, mlRatingCount: { gt: 50 }, posterUrl: { not: null }, year: { gte: currentYear - 1 } },
-      orderBy: { mlAvgScore: "desc" },
-      take: 20,
-      select: { id: true, title: true, year: true, posterUrl: true, mlAvgScore: true, genres: true, mlRatingCount: true },
-    }),
-    prisma.movie.findMany({
-      where: { contentType: "movie", mlAvgScore: { not: null }, mlRatingCount: { gt: 50 }, posterUrl: { not: null }, year: { gte: currentYear - 1 } },
-      orderBy: { mlAvgScore: "desc" },
-      take: 20,
-      select: { id: true, title: true, year: true, posterUrl: true, mlAvgScore: true, genres: true, mlRatingCount: true },
-    }),
-    prisma.movie.findMany({
-      where: { contentType: "movie", overview: { not: "" }, posterUrl: { not: null }, mlRatingCount: { gt: 100 } },
-      orderBy: { mlRatingCount: "desc" },
-      skip: movieSkip,
-      take: 5,
-      select: { id: true, title: true, overview: true, posterUrl: true, bannerImage: true, contentType: true, genres: true, year: true },
-    }),
-    prisma.movie.findMany({
-      where: { contentType: "anime", overview: { not: "" }, posterUrl: { not: null }, mlRatingCount: { gt: 100 } },
-      orderBy: { mlRatingCount: "desc" },
-      skip: animeSkip,
-      take: 5,
-      select: { id: true, title: true, overview: true, posterUrl: true, bannerImage: true, contentType: true, genres: true, year: true },
-    }),
-    prisma.rating.findMany({
-      where: { review: { not: null }, score: { gte: 8 } },
-      orderBy: { score: "desc" },
-      take: 20,
-      select: {
-        score: true,
-        review: true,
-        user: { select: { name: true } },
-        movie: { select: { id: true, title: true, posterUrl: true, genres: true, year: true, contentType: true } },
-      },
-    }),
-  ]);
-  // Shuffle pools and take 4 so each page load shows a different set
-  const topAnime = animePool.sort(() => Math.random() - 0.5).slice(0, 4);
-  const topMovies = moviePool.sort(() => Math.random() - 0.5).slice(0, 4);
-  const topReviews = reviewPool.sort(() => Math.random() - 0.5).slice(0, 4);
-  // Interleave movies and anime so the rotator alternates between both
-  const heroPool = heroMovies.flatMap((m, i) => (heroAnime[i] ? [m, heroAnime[i]] : [m]));
-  return { topAnime, topMovies, heroPool, topReviews };
-}
+const fetchFeatured = unstable_cache(
+  async () => {
+    const movieSkip = Math.floor(Math.random() * 300);
+    const animeSkip = Math.floor(Math.random() * 200);
+    const currentYear = new Date().getFullYear();
+    const [animePool, moviePool, heroMovies, heroAnime, reviewPool] = await Promise.all([
+      prisma.movie.findMany({
+        where: { contentType: "anime", mlAvgScore: { not: null }, mlRatingCount: { gt: 50 }, posterUrl: { not: null }, year: { gte: currentYear - 1 } },
+        orderBy: { mlAvgScore: "desc" },
+        take: 20,
+        select: { id: true, title: true, year: true, posterUrl: true, mlAvgScore: true, genres: true, mlRatingCount: true },
+      }),
+      prisma.movie.findMany({
+        where: { contentType: "movie", mlAvgScore: { not: null }, mlRatingCount: { gt: 50 }, posterUrl: { not: null }, year: { gte: currentYear - 1 } },
+        orderBy: { mlAvgScore: "desc" },
+        take: 20,
+        select: { id: true, title: true, year: true, posterUrl: true, mlAvgScore: true, genres: true, mlRatingCount: true },
+      }),
+      prisma.movie.findMany({
+        where: { contentType: "movie", overview: { not: "" }, posterUrl: { not: null }, mlRatingCount: { gt: 100 } },
+        orderBy: { mlRatingCount: "desc" },
+        skip: movieSkip,
+        take: 5,
+        select: { id: true, title: true, overview: true, posterUrl: true, bannerImage: true, contentType: true, genres: true, year: true },
+      }),
+      prisma.movie.findMany({
+        where: { contentType: "anime", overview: { not: "" }, posterUrl: { not: null }, mlRatingCount: { gt: 100 } },
+        orderBy: { mlRatingCount: "desc" },
+        skip: animeSkip,
+        take: 5,
+        select: { id: true, title: true, overview: true, posterUrl: true, bannerImage: true, contentType: true, genres: true, year: true },
+      }),
+      prisma.rating.findMany({
+        where: { review: { not: null }, score: { gte: 8 } },
+        orderBy: { score: "desc" },
+        take: 20,
+        select: {
+          score: true,
+          review: true,
+          user: { select: { name: true } },
+          movie: { select: { id: true, title: true, posterUrl: true, genres: true, year: true, contentType: true } },
+        },
+      }),
+    ]);
+    const topAnime = animePool.sort(() => Math.random() - 0.5).slice(0, 4);
+    const topMovies = moviePool.sort(() => Math.random() - 0.5).slice(0, 4);
+    const topReviews = reviewPool.sort(() => Math.random() - 0.5).slice(0, 4);
+    // Interleave movies and anime so the rotator alternates between both
+    const heroPool = heroMovies.flatMap((m, i) => (heroAnime[i] ? [m, heroAnime[i]] : [m]));
+    return { topAnime, topMovies, heroPool, topReviews };
+  },
+  ["landing-featured"],
+  { revalidate: 300 }
+);
 
 function fmtCount(n: number | null): string {
   if (!n) return "—";
