@@ -43,3 +43,16 @@ next-env.d.ts
 CLAUDE.md
 # Added by code-review-graph
 .code-review-graph/
+
+# AI/planning tool directories
+.agents/
+.claude/
+.cursor/plans/
+.planning/
+
+# Local dev tool config (personal to each developer's setup)
+.mcp.json
+skills-lock.json
+
+# DB dumps
+*.dump
