@@ -98,8 +98,15 @@ async function getJikanThumbnails(malId: number): Promise<Map<number, string>> {
 
 interface FribbEntry {
   anilist_id?: number;
-  themoviedb_id?: number;
+  // older entries: plain number; newer entries: { tv?: number; movie?: number }
+  themoviedb_id?: number | { tv?: number; movie?: number };
   season?: { tmdb?: number };
+}
+
+function extractTmdbTvId(raw: FribbEntry["themoviedb_id"]): number | null {
+  if (!raw) return null;
+  if (typeof raw === "number") return raw;
+  return raw.tv ?? null;
 }
 
 async function loadFribbMapping(): Promise<Map<number, { tmdbId: number; tmdbSeason: number }>> {
@@ -107,9 +114,10 @@ async function loadFribbMapping(): Promise<Map<number, { tmdbId: number; tmdbSea
   const data: FribbEntry[] = await res.json();
   const map = new Map<number, { tmdbId: number; tmdbSeason: number }>();
   for (const entry of data) {
-    if (entry.anilist_id && entry.themoviedb_id) {
+    const tmdbId = extractTmdbTvId(entry.themoviedb_id);
+    if (entry.anilist_id && tmdbId) {
       map.set(entry.anilist_id, {
-        tmdbId: entry.themoviedb_id,
+        tmdbId,
         tmdbSeason: entry.season?.tmdb ?? 1,
       });
     }
